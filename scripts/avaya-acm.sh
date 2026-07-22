@@ -487,7 +487,6 @@ Soll die VM mit diesen Werten erstellt werden?\
         --bios ovmf \
         --scsihw virtio-scsi-pci \
         --machine q35 \
-        --net0 none \
         --agent 1
 
     if [[ $? -ne 0 ]]; then

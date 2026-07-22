@@ -533,7 +533,6 @@ Es führt folgende Schritte aus:
         --bios ovmf \
         --scsihw virtio-scsi-pci \
         --machine q35 \
-        --net0 none \
         --agent 1
 
     if [[ $? -ne 0 ]]; then
