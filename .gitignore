@@ -1,0 +1,17 @@
+# OS
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+
+# Temp
+/tmp/
+*.tmp
+
+# PDF (große Datei, separat archiviert)
+avaya anleitung.pdf
+
+# IDE
+.idea/
+.vscode/
+*.sublime-*
