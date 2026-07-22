@@ -21,7 +21,6 @@ REPO_BASE="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_B
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
-TEMP_DIR="/tmp/avaya-proxmox-scripts"
 
 # Module registry: (Anzeigename | Script-Dateiname | Implementiert?)
 MODULES=(
@@ -114,10 +113,15 @@ run_module() {
 
     check_curl
 
-    mkdir -p "$TEMP_DIR"
+    # Temporäres Verzeichnis mit mktemp (sicherer als statischer Pfad)
+    local temp_dir
+    temp_dir=$(mktemp -d /tmp/avaya-proxmox-XXXXXXXXXX 2>/dev/null) || {
+        msg_error "Konnte kein temporäres Verzeichnis erstellen."
+        return 1
+    }
 
     local remote_url="${REPO_BASE}/scripts/${script_file}"
-    local temp_script="${TEMP_DIR}/${script_file}"
+    local temp_script="${temp_dir}/${script_file}"
 
     if curl -fsSL "$remote_url" -o "$temp_script"; then
         chmod +x "$temp_script"
@@ -131,13 +135,14 @@ run_module() {
             msg_error "Modul ${module_name} mit Fehler (Exit-Code: ${exit_code}) beendet."
         fi
         # Aufräumen
-        rm -f "$temp_script"
+        rm -rf "$temp_dir"
         return $exit_code
     else
         msg_error "Konnte Modul nicht von GitHub Raw laden: ${remote_url}"
         whiptail --title "Download-Fehler" \
             --msgbox "Das Modul ${script_file} konnte weder lokal noch von GitHub Raw geladen werden.\n\nPrüfe die Internetverbindung oder lade das Repository vollständig herunter." \
             12 60
+        rm -rf "$temp_dir"
         return 1
     fi
 }

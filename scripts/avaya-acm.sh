@@ -529,16 +529,15 @@ Soll die VM mit diesen Werten erstellt werden?\
     # 5. Netzwerkkarten
     msg_info "Füge ${profile_nics} Netzwerkkarte(n) hinzu (${nic_model}, ${bridge}) ..."
     for ((i = 0; i < profile_nics; i++)); do
-        local net_param="net${i},model=${nic_model},bridge=${bridge}"
+        local net_opts="model=${nic_model},bridge=${bridge}"
         if [[ -n "$vlan_tag" ]]; then
-            net_param="${net_param},tag=${vlan_tag}"
+            net_opts="${net_opts},tag=${vlan_tag}"
         fi
-        qm set "${vmid}" "--${net_param}" 2>/dev/null || \
-        qm set "${vmid}" "${net_param}" 1>/dev/null || {
+        if ! qm set "${vmid}" "--net${i}" "${net_opts}" >/dev/null 2>&1; then
             msg_error "Fehler beim Hinzufügen von net${i}."
             exit $EXIT_ERROR
-        }
-        msg_info "  net${i}: ${nic_model} -> ${bridge}${vlan_display:+ (VLAN ${vlan_tag})}"
+        fi
+        msg_info "  net${i}: ${nic_model} -> ${bridge}${vlan_tag:+ (VLAN ${vlan_tag})}"
     done
 
     # 6. EFI-Disk
