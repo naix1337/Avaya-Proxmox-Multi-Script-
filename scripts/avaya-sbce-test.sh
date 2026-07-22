@@ -282,6 +282,13 @@ Es führt folgende Schritte aus:
         exit $EXIT_USER_ABORT
     fi
 
+    # Name validieren (nur sichere Zeichen)
+    if [[ -z "$vm_name" ]] || [[ ! "$vm_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        msg_error "Ungültiger VM-Name. Erlaubt: Buchstaben, Ziffern, Punkte, Unterstriche, Bindestriche."
+        whiptail --title "Ungültiger Name" --msgbox "Der Name darf nur Buchstaben, Ziffern, Punkte, Unterstriche und\nBindestriche enthalten." 8 60
+        exit $EXIT_USER_ABORT
+    fi
+
     # ----- Schritt 4: Storage wählen ------------------------------------------
     local storage_list
     storage_list=$(list_storages)
