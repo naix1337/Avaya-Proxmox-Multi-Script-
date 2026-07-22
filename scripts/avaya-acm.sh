@@ -438,13 +438,17 @@ Soll die VM mit diesen Werten erstellt werden?\
     local qcow2_path=""
 
     if [[ "$source_path" == *.ova ]] || [[ "$source_path" == *.ovf ]]; then
-        msg_info "OVA/OVF-Datei erkannt. Entpacke nach ${source_path%.*} ..."
         local extract_dir
         extract_dir="$(dirname "$source_path")/acm-extract-${vmid}"
         mkdir -p "$extract_dir"
+        msg_info "OVA/OVF-Datei erkannt. Entpacke nach ${extract_dir} ..."
 
         if ! tar -xvf "$source_path" -C "$extract_dir"; then
+            local disk_free
+            disk_free=$(df -h "$extract_dir" 2>/dev/null | awk 'NR==2{print $4}')
             msg_error "Fehler beim Entpacken der OVA-Datei."
+            msg_error "Verfügbarer Speicher in ${extract_dir}: ${disk_free:-unbekannt}"
+            msg_error "Prüfe: df -h $(dirname "$extract_dir")"
             exit $EXIT_ERROR
         fi
         msg_ok "OVA erfolgreich entpackt nach ${extract_dir}"
