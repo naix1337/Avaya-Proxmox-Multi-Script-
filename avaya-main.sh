@@ -19,7 +19,7 @@ REPO_NAME="Avaya-Proxmox-Multi-Script-"
 REPO_BRANCH="main"
 REPO_BASE="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_BRANCH}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
 TEMP_DIR="/tmp/avaya-proxmox-scripts"
 

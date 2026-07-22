@@ -212,14 +212,14 @@ main() {
 
     # ----- Splash / Begrüßung ------------------------------------------------
     whiptail --title "Avaya SBCE — KVM-Import" \
-        --msgbox "Dieses Skript erstellt eine KVM-VM für Avaya SBCE auf Proxmox VE.\n\n" \
-"Es führt folgende Schritte aus:
+        --msgbox "Dieses Skript erstellt eine KVM-VM für Avaya SBCE auf Proxmox VE.
+
+Es führt folgende Schritte aus:
 • VM mit Profil-Vorgaben anlegen (CPU, RAM, Disk)
 • QCOW2-Image importieren (lokal oder via Download)
 • Netzwerkkarten hinzufügen (je nach Variante 2, 4 oder 6)
 • BIOS OVMF, VirtIO SCSI, CPU Host, E1000-NICs
-• Boot von der importierten Festplatte (scsi0)" \
-        16 65
+• Boot von der importierten Festplatte (scsi0)" 16 65
 
     if [[ $? -ne 0 ]]; then
         msg_info "Abbruch durch Benutzer."
