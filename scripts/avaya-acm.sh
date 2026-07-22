@@ -146,9 +146,9 @@ find_qcow2_in_dir() {
 # --- Profile ----------------------------------------------------------------
 # NAME|CORES|RAM_MB|DISK_GB|NICS
 declare -A PROFILES
-PROFILES["small"]   "Small ACM|4|8192|100|2"
-PROFILES["medium"]  "Medium ACM|6|16384|200|3"
-PROFILES["large"]   "Large ACM|8|32768|300|4"
+PROFILES["small"]="Small ACM|4|8192|100|2"
+PROFILES["medium"]="Medium ACM|6|16384|200|3"
+PROFILES["large"]="Large ACM|8|32768|300|4"
 
 # --- Hauptfunktion -----------------------------------------------------------
 
