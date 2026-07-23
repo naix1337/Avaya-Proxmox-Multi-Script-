@@ -44,8 +44,10 @@ OVA_SEARCH_DIRS=(
     "$HOME"
 )
 
-# Standard-Download-URL (eigener Mirror/TrueNAS/etc.) — leer lassen wenn kein Auto-Download
-OVA_DEFAULT_DOWNLOAD_URL=""
+# Standard-Download-URL (eigener Mirror/TrueNAS/etc.)
+# Wenn gesetzt, erscheint "Automatisch herunterladen" im Menü.
+# Überschreibbar per Umgebungsvariable: OVA_MIRROR_BASE
+OVA_DEFAULT_DOWNLOAD_URL="${OVA_MIRROR_BASE:-https://ova.insolution.cloud}/acm/"
 
 # --- Hilfsfunktionen ---------------------------------------------------------
 

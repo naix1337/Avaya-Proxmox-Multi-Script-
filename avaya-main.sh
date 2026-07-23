@@ -22,6 +22,11 @@ REPO_BASE="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_B
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="${SCRIPT_DIR}/scripts"
 
+# Config laden (OVA-Mirror + Download-Funktionen)
+if [[ -f "${SCRIPTS_DIR}/avaya-config.sh" ]]; then
+    source "${SCRIPTS_DIR}/avaya-config.sh"
+fi
+
 # Module registry: (Anzeigename | Script-Dateiname | Implementiert?)
 MODULES=(
     "ACM|avaya-acm.sh|yes"

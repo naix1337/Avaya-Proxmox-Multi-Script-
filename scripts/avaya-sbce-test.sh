@@ -449,8 +449,8 @@ Es führt folgende Schritte aus:
     # ----- Schritt 10: Download-URL (optional) ---------------------------------
     local dl_url=""
     dl_url=$(whiptail --title "Download-URL (optional)" \
-        --inputbox "\nWenn die QCOW2-Datei noch nicht lokal existiert, kann sie\ndirekt heruntergeladen werden. URL eingeben oder leer lassen:\n" \
-        12 70 "" \
+        --inputbox "\nWenn die QCOW2-Datei noch nicht lokal existiert, kann sie\ndirekt heruntergeladen werden. URL eingeben oder leer lassen:\n\nBeispiel: https://ova.insolution.cloud/sbce/sbce-dateiname.qcow2\n" \
+        14 70 "${OVA_MIRROR_BASE:-https://ova.insolution.cloud}/sbce/" \
         3>&1 1>&2 2>&3)
 
     if [[ $? -ne 0 ]]; then
