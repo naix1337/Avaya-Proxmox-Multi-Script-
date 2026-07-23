@@ -47,7 +47,7 @@ OVA_SEARCH_DIRS=(
 # Standard-Download-URL (eigener Mirror/TrueNAS/etc.)
 # Wenn gesetzt, erscheint "Automatisch herunterladen" im Menü.
 # Überschreibbar per Umgebungsvariable: OVA_MIRROR_BASE
-OVA_DEFAULT_DOWNLOAD_URL="${OVA_MIRROR_BASE:-https://ova.insolution.cloud}/acm/"
+OVA_DEFAULT_DOWNLOAD_URL="${OVA_MIRROR_BASE:-https://ova.insolution.cloud}/acm/CM-Duplex-010.2.0.0.229-KVM-2.ova"
 
 # --- Hilfsfunktionen ---------------------------------------------------------
 
