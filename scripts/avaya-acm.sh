@@ -21,15 +21,31 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # --- Exit-Code-Tabelle -------------------------------------------------------
-#  0  OK  — Erfolgreich ausgeführt
-#  1  ERROR  — Allgemeiner Fehler (qm, wget, tar, etc.)
-#  2  USER_ABORT  — Abbruch durch Benutzer (ESC/Cancel)
-# 127  — Befehl nicht gefunden (declare -A, fehlende Tools)
-# 255  — whiptail-Fehler (falsche Argumente)
-# -----------------------------------------------------------------------------
 EXIT_OK=0
 EXIT_ERROR=1
 EXIT_USER_ABORT=2
+
+# --- OVA-Konfiguration -------------------------------------------------------
+# Standard-Dateinamen nach denen automatisch gesucht wird
+OVA_SEARCH_NAMES=(
+    "acm.ova"
+    "avaya-acm.ova"
+    "CM_*.ova"
+    "ACM_*.ova"
+    "communication-manager*.ova"
+)
+
+# Verzeichnisse die automatisch durchsucht werden (Reihenfolge nach Priorität)
+OVA_SEARCH_DIRS=(
+    "/var/lib/vz/template/iso"
+    "/var/lib/vz/images"
+    "/tmp"
+    "/root"
+    "$HOME"
+)
+
+# Standard-Download-URL (eigener Mirror/TrueNAS/etc.) — leer lassen wenn kein Auto-Download
+OVA_DEFAULT_DOWNLOAD_URL=""
 
 # --- Hilfsfunktionen ---------------------------------------------------------
 
@@ -93,7 +109,6 @@ validate_storage() {
         return 1
     fi
 
-    # Prüfen, ob der Storage VM-Images unterstützt
     local content
     content=$(pvesh get /storage/"${storage}" --noborder --noheader -output-format json 2>/dev/null \
         | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('content',''))" 2>/dev/null)
@@ -162,16 +177,13 @@ except: pass" 2>/dev/null || true
 
 find_qcow2_in_dir() {
     local dir="$1"
-    # Suche nach .qcow2 oder .img-Dateien im Verzeichnis
     find "$dir" -maxdepth 1 -type f \( -name "*.qcow2" -o -name "*.img" -o -name "*.raw" \) 2>/dev/null | head -5 || true
 }
 
-# Prüft, ob genug Speicherplatz für die OVA-Entpackung vorhanden ist
 check_disk_space() {
     local ova_path="$1"
     local target_dir="$2"
 
-    # OVA-Größe ermitteln
     local ova_size_kb
     ova_size_kb=$(du -k "$ova_path" 2>/dev/null | cut -f1)
     if [[ -z "$ova_size_kb" ]] || [[ "$ova_size_kb" -eq 0 ]]; then
@@ -179,7 +191,6 @@ check_disk_space() {
         return 0
     fi
 
-    # Freier Speicher im Ziel-Verzeichnis
     local free_kb
     free_kb=$(df -k "$target_dir" 2>/dev/null | awk 'NR==2{print $4}')
     if [[ -z "$free_kb" ]] || [[ "$free_kb" -eq 0 ]]; then
@@ -187,8 +198,6 @@ check_disk_space() {
         return 0
     fi
 
-    # Großzügiger Faktor: entpackte OVA braucht meist das 2-3fache
-    # Wir prüfen auf min. 3x OVA-Größe oder 5 GB (je nachdem was größer ist)
     local min_needed_kb=$(( ova_size_kb * 3 ))
     local five_gb=$(( 5 * 1024 * 1024 ))
     [[ $min_needed_kb -lt $five_gb ]] && min_needed_kb=$five_gb
@@ -212,25 +221,203 @@ check_disk_space() {
     return 0
 }
 
-# --- Profile (offizielle Avaya-Werte) ---------------------------------------
-# NAME|CORES|RAM_MB|DISK_GB|NICS
-#
-# Quelle: Avaya Communication Manager OVA Footprint Tabelle (ASP R6.0.x KVM)
-# https://documentation.avaya.com/en-us/home/bundle/communication-manager/
-#   deployingcommunicationmanagerver102x/planning-and-preconfigurationfordeploying
-#   communicationmanager/Supported_footprints_for_Communication_Manager_OVA_on_ASP_
-#   R6_0_x__KVM_on_RHEL_8_10_.html
-#
-# Profil         | vCPUs | RAM    | Disk | NICs | Max Users
-# ----------------+-------+--------+------+------+----------
-# CM Simplex2     | 2     | 4608 MB| 64 GB|  2   | 41.000
-# CM Duplex       | 3     | 5120 MB| 64 GB|  3   | 30.000
-# CM High Duplex  | 3     | 5120 MB| 64 GB|  3   | 41.000
-# -----------------------------------------------------------------------------
+# =============================================================================
+# OVA-Suche: Durchsucht alle bekannten Verzeichnisse nach OVA-Dateien
+# Gibt den Pfad zur gefundenen Datei zurück oder leeren String
+# =============================================================================
+search_ova_local() {
+    msg_info "Suche nach OVA-Datei im lokalen Dateisystem..."
+
+    local found_path=""
+    for search_dir in "${OVA_SEARCH_DIRS[@]}"; do
+        if [[ ! -d "$search_dir" ]]; then
+            continue
+        fi
+        for pattern in "${OVA_SEARCH_NAMES[@]}"; do
+            # Glob-Suche im Verzeichnis
+            while IFS= read -r -d '' found_file; do
+                if [[ -f "$found_file" ]] && [[ -r "$found_file" ]]; then
+                    local size_mb
+                    size_mb=$(du -m "$found_file" 2>/dev/null | cut -f1)
+                    msg_ok "OVA gefunden: ${found_file} (${size_mb:-?} MB)"
+                    found_path="$found_file"
+                    echo "$found_path"
+                    return 0
+                fi
+            done < <(find "$search_dir" -maxdepth 2 -name "$pattern" -print0 2>/dev/null)
+        done
+    done
+
+    echo ""
+    return 1
+}
+
+# =============================================================================
+# OVA-Dialog: Zeigt Optionen wenn keine OVA lokal gefunden wurde
+# Gibt den finalen OVA-Pfad zurück
+# =============================================================================
+handle_ova_not_found() {
+    local dl_dir="${1:-/var/lib/vz/template/iso}"
+
+    # Whiptail-Menü: automatisch herunterladen oder eigene URL
+    local action
+    action=$(whiptail --title "❌ Keine OVA-Datei gefunden" \
+        --menu "\nDie ACM OVA-Datei wurde nicht lokal gefunden.\n\nWie möchtest du fortfahren?\n" \
+        16 72 4 \
+        "auto"   "Automatisch herunterladen (Standard-Mirror)" \
+        "custom" "Eigene Download-URL eingeben" \
+        "manual" "Pfad manuell eingeben (Datei liegt woanders)" \
+        "abort"  "Abbrechen" \
+        3>&1 1>&2 2>&3)
+
+    if [[ $? -ne 0 ]] || [[ -z "$action" ]] || [[ "$action" == "abort" ]]; then
+        msg_info "Abbruch durch Benutzer."
+        exit $EXIT_USER_ABORT
+    fi
+
+    local final_path=""
+
+    case "$action" in
+
+        "auto")
+            # Standard-Download-URL prüfen
+            if [[ -z "$OVA_DEFAULT_DOWNLOAD_URL" ]]; then
+                whiptail --title "Kein Standard-Mirror konfiguriert" \
+                    --msgbox "Es wurde kein Standard-Download-Mirror konfiguriert.\n\nBitte trage deine Download-URL in die Variable\n'OVA_DEFAULT_DOWNLOAD_URL' im Script ein\n(z. B. dein TrueNAS oder eigener Mirror).\n\nDu kannst alternativ 'Eigene URL' verwenden." \
+                    14 65
+                # Direkt weiter zu "custom"
+                action="custom"
+            else
+                local ova_filename
+                ova_filename=$(basename "$OVA_DEFAULT_DOWNLOAD_URL" | sed 's/?.*//')
+                [[ -z "$ova_filename" ]] && ova_filename="acm.ova"
+                final_path="${dl_dir}/${ova_filename}"
+                mkdir -p "$dl_dir"
+
+                if [[ -f "$final_path" ]]; then
+                    msg_ok "Datei bereits vorhanden: ${final_path}"
+                else
+                    msg_info "Starte automatischen Download von: ${OVA_DEFAULT_DOWNLOAD_URL}"
+                    if ! download_file "$OVA_DEFAULT_DOWNLOAD_URL" "$final_path"; then
+                        msg_error "Automatischer Download fehlgeschlagen."
+                        exit $EXIT_ERROR
+                    fi
+                fi
+                echo "$final_path"
+                return 0
+            fi
+            ;;&  # Fall-through zu "custom" wenn kein Mirror konfiguriert
+
+        "custom")
+            local custom_url=""
+            custom_url=$(whiptail --title "Eigene Download-URL" \
+                --inputbox "\nGib die Download-URL der ACM OVA-Datei ein:\n\nBeispiele:\n  http://nas.local:8080/ova/acm.ova\n  http://100.x.x.x/avaya/acm.ova   (Tailscale)\n  https://your-mirror.com/acm.ova\n" \
+                16 72 "${OVA_DEFAULT_DOWNLOAD_URL}" \
+                3>&1 1>&2 2>&3)
+
+            if [[ $? -ne 0 ]] || [[ -z "$custom_url" ]]; then
+                msg_info "Abbruch durch Benutzer."
+                exit $EXIT_USER_ABORT
+            fi
+
+            local ova_filename
+            ova_filename=$(basename "$custom_url" | sed 's/?.*//')
+            [[ -z "$ova_filename" ]] || [[ "$ova_filename" != *"."* ]] && ova_filename="acm.ova"
+            final_path="${dl_dir}/${ova_filename}"
+            mkdir -p "$dl_dir"
+
+            if [[ -f "$final_path" ]]; then
+                if whiptail --title "Datei bereits vorhanden" \
+                    --yesno "Die Datei existiert bereits:\n${final_path}\n\nErneut herunterladen?" \
+                    10 65; then
+                    if ! download_file "$custom_url" "$final_path"; then
+                        msg_error "Download fehlgeschlagen."
+                        exit $EXIT_ERROR
+                    fi
+                else
+                    msg_ok "Vorhandene Datei wird verwendet: ${final_path}"
+                fi
+            else
+                if ! download_file "$custom_url" "$final_path"; then
+                    msg_error "Download fehlgeschlagen."
+                    exit $EXIT_ERROR
+                fi
+            fi
+            echo "$final_path"
+            return 0
+            ;;
+
+        "manual")
+            local manual_path=""
+            manual_path=$(whiptail --title "Manueller Pfad" \
+                --inputbox "\nGib den vollständigen Pfad zur OVA-Datei ein:\n\nBeispiel: /mnt/nas/avaya/acm.ova\n" \
+                12 65 "/var/lib/vz/template/iso/" \
+                3>&1 1>&2 2>&3)
+
+            if [[ $? -ne 0 ]] || [[ -z "$manual_path" ]]; then
+                msg_info "Abbruch durch Benutzer."
+                exit $EXIT_USER_ABORT
+            fi
+
+            if [[ ! -f "$manual_path" ]]; then
+                whiptail --title "Datei nicht gefunden" \
+                    --msgbox "Die angegebene Datei wurde nicht gefunden:\n${manual_path}\n\nBitte Pfad prüfen und erneut versuchen." \
+                    10 65
+                exit $EXIT_ERROR
+            fi
+
+            msg_ok "Datei gefunden: ${manual_path}"
+            echo "$manual_path"
+            return 0
+            ;;
+    esac
+}
+
+# =============================================================================
+# Haupt-OVA-Resolver: Lokal suchen → bei Fehler Dialog anzeigen
+# Setzt die globale Variable OVA_PATH
+# =============================================================================
+resolve_ova_path() {
+    local dl_dir="${1:-/var/lib/vz/template/iso}"
+
+    # 1. Automatische lokale Suche
+    local found
+    found=$(search_ova_local)
+
+    if [[ -n "$found" ]]; then
+        # Bestätigung anzeigen
+        local size_mb
+        size_mb=$(du -m "$found" 2>/dev/null | cut -f1)
+        if whiptail --title "✅ OVA-Datei gefunden" \
+            --yesno "OVA-Datei wurde automatisch gefunden:\n\n  ${found}\n  Größe: ${size_mb:-?} MB\n\nDiese Datei verwenden?" \
+            12 70; then
+            OVA_PATH="$found"
+            return 0
+        else
+            # User will eine andere Datei → Dialog zeigen
+            local alt_path
+            alt_path=$(handle_ova_not_found "$dl_dir")
+            OVA_PATH="$alt_path"
+            return 0
+        fi
+    fi
+
+    # 2. Nicht gefunden → Dialog
+    msg_warn "Keine OVA-Datei in den Standardpfaden gefunden."
+    local chosen_path
+    chosen_path=$(handle_ova_not_found "$dl_dir")
+    OVA_PATH="$chosen_path"
+    return 0
+}
+
+# --- Profile (offizielle Avaya-Werte) ----------------------------------------
 declare -A PROFILES
 PROFILES["simplex"]="CM Simplex2|2|4608|64|2"
 PROFILES["duplex"]="CM Duplex|3|5120|64|3"
 PROFILES["highduplex"]="CM High Duplex|3|5120|64|3"
+
+# Globale OVA-Pfad-Variable
+OVA_PATH=""
 
 # --- Hauptfunktion -----------------------------------------------------------
 
@@ -258,7 +445,7 @@ verwendet: OVMF, VirtIO SCSI, CPU Host, E1000-NICs.\
         exit $EXIT_USER_ABORT
     fi
 
-    # ----- Schritt 1: Variante wählen ---------------------------------------
+    # ----- Schritt 1: Variante wählen ----------------------------------------
     local variant_choice
     variant_choice=$(whiptail --title "ACM-Profil" \
         --radiolist "\
@@ -301,7 +488,7 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
             8 50
     done
 
-    # ----- Schritt 3: VM-Name -------------------------------------------------
+    # ----- Schritt 3: VM-Name ------------------------------------------------
     local vm_name=""
     vm_name=$(whiptail --title "VM-Name" \
         --inputbox "\nGib einen Namen für die VM ein (z. B. acm-small, acm-prod):\n" \
@@ -313,14 +500,13 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
         exit $EXIT_USER_ABORT
     fi
 
-    # Name validieren (nur sichere Zeichen)
     if [[ -z "$vm_name" ]] || [[ ! "$vm_name" =~ ^[a-zA-Z0-9._-]+$ ]]; then
         msg_error "Ungültiger VM-Name. Erlaubt: Buchstaben, Ziffern, Punkte, Unterstriche, Bindestriche."
         whiptail --title "Ungültiger Name" --msgbox "Der Name darf nur Buchstaben, Ziffern, Punkte, Unterstriche und\nBindestriche enthalten." 8 60
         exit $EXIT_USER_ABORT
     fi
 
-    # ----- Schritt 4: Storage -------------------------------------------------
+    # ----- Schritt 4: Storage ------------------------------------------------
     local storage_list
     storage_list=$(list_storages)
     local storage=""
@@ -371,7 +557,7 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
         fi
     fi
 
-    # ----- Schritt 5: Bridge --------------------------------------------------
+    # ----- Schritt 5: Bridge -------------------------------------------------
     local bridge=""
     bridge=$(whiptail --title "Bridge" \
         --inputbox "\nGib die Bridge für die Netzwerkkarten ein (Standard: vmbr0):\n" \
@@ -384,7 +570,7 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
     fi
     validate_bridge "$bridge" || true
 
-    # ----- Schritt 6: VLAN (optional) -----------------------------------------
+    # ----- Schritt 6: VLAN (optional) ----------------------------------------
     local vlan_tag=""
     vlan_tag=$(whiptail --title "VLAN-Tag (optional)" \
         --inputbox "\nVLAN-Tag für alle Netzwerkkarten (leer lassen für kein VLAN):\n" \
@@ -399,58 +585,14 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
         validate_vlan "$vlan_tag" || vlan_tag=""
     fi
 
-    # ----- Schritt 7: Quelle (lokal oder Download) ---------------------------
-    local source_type=""
-    source_type=$(whiptail --title "Quelle" \
-        --radiolist "\nWo befindet sich die ACM-OVA/Image-Datei?\n" \
-        12 60 3 \
-        "local"    "Lokale OVA-Datei oder bereits entpacktes QCOW2" ON \
-        "download" "Von URL herunterladen (OVA von Avaya PLDS)"    OFF \
-        3>&1 1>&2 2>&3)
+    # ----- Schritt 7: OVA-Datei (automatische Suche + Fallback-Dialog) -------
+    local dl_dir="/var/lib/vz/template/iso"
+    resolve_ova_path "$dl_dir"
+    local source_path="$OVA_PATH"
 
-    if [[ $? -ne 0 ]] || [[ -z "$source_type" ]]; then
-        msg_info "Abbruch durch Benutzer."
-        exit $EXIT_USER_ABORT
-    fi
-
-    local source_path=""
-    local dl_url=""
-
-    if [[ "$source_type" == "local" ]]; then
-        source_path=$(whiptail --title "OVA/QCOW2-Pfad" \
-            --inputbox "\nGib den vollständigen Pfad zur OVA- oder QCOW2-Datei ein:\nBeispiel: /var/lib/vz/template/iso/acm.ova\n" \
-            12 70 "/var/lib/vz/template/iso/" \
-            3>&1 1>&2 2>&3)
-        if [[ $? -ne 0 ]]; then
-            msg_info "Abbruch durch Benutzer."
-            exit $EXIT_USER_ABORT
-        fi
-    else
-        dl_url=$(whiptail --title "Download-URL" \
-            --inputbox "\nGib die Download-URL der ACM-OVA ein:\n(Hinweis: URL aus Avaya PLDS generieren)\n" \
-            12 70 "" \
-            3>&1 1>&2 2>&3)
-        if [[ $? -ne 0 ]] || [[ -z "$dl_url" ]]; then
-            msg_info "Abbruch durch Benutzer."
-            exit $EXIT_USER_ABORT
-        fi
-
-        local dl_dir="/var/lib/vz/template/iso/"
-        local ova_filename="acm.ova"
-        ova_filename=$(basename "$dl_url" | sed 's/?.*//') # URL-Parameter entfernen
-        [[ -z "$ova_filename" ]] && ova_filename="acm.ova"
-
-        source_path="${dl_dir}${ova_filename}"
-        mkdir -p "$dl_dir"
-
-        if [[ ! -f "$source_path" ]]; then
-            if ! download_file "$dl_url" "$source_path"; then
-                msg_error "Download fehlgeschlagen."
-                exit $EXIT_ERROR
-            fi
-        else
-            msg_ok "Datei bereits vorhanden: ${source_path}"
-        fi
+    if [[ -z "$source_path" ]] || [[ ! -f "$source_path" ]]; then
+        msg_error "Keine gültige OVA-Datei verfügbar. Abbruch."
+        exit $EXIT_ERROR
     fi
 
     # ----- Schritt 8: NIC-Modell ---------------------------------------------
@@ -475,15 +617,11 @@ Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
         start_vm="yes"
     fi
 
-    # ----- Zusammenfassung ----------------------------------------------------
+    # ----- Zusammenfassung ---------------------------------------------------
     local vlan_display="kein VLAN"
     [[ -n "$vlan_tag" ]] && vlan_display="VLAN ${vlan_tag}"
     local start_display="nein"
     [[ "$start_vm" == "yes" ]] && start_display="ja"
-    local src_display="$source_path"
-    if [[ "$source_type" == "download" ]]; then
-        src_display="${source_path} (von URL geladen)"
-    fi
 
     whiptail --title "Zusammenfassung" \
         --yesno "\
@@ -497,7 +635,7 @@ NICs (Anzahl):   ${profile_nics}
 NIC-Modell:      ${nic_model}
 Storage:         ${storage}
 Bridge:          ${bridge} (${vlan_display})
-Quelle:          ${src_display}
+Quelle:          ${source_path}
 Auto-Start:      ${start_display}
 
 Soll die VM mit diesen Werten erstellt werden?\
@@ -509,7 +647,7 @@ Soll die VM mit diesen Werten erstellt werden?\
         exit $EXIT_USER_ABORT
     fi
 
-    # ----- Ausführung ---------------------------------------------------------
+    # ----- Ausführung --------------------------------------------------------
     echo ""
     echo -e "${BOLD}============================================${NC}"
     echo -e "${BOLD}  Starte ACM VM-Import${NC}"
@@ -524,7 +662,6 @@ Soll die VM mit diesen Werten erstellt werden?\
         extract_dir="$(dirname "$source_path")/acm-extract-${vmid}"
         mkdir -p "$extract_dir"
 
-        # Checks vor der Entpackung
         check_disk_space "$source_path" "$extract_dir"
 
         msg_info "OVA/OVF-Datei erkannt. Entpacke nach ${extract_dir} ..."
@@ -534,15 +671,13 @@ Soll die VM mit diesen Werten erstellt werden?\
             disk_free=$(df -h "$extract_dir" 2>/dev/null | awk 'NR==2{print $4}')
             msg_error "Fehler beim Entpacken der OVA-Datei."
             msg_error "Verfügbarer Speicher in ${extract_dir}: ${disk_free:-unbekannt}"
-            msg_error "Prüfe: df -h $(dirname "$extract_dir")"
             exit $EXIT_ERROR
         fi
         msg_ok "OVA erfolgreich entpackt nach ${extract_dir}"
 
-        # QCOW2 im entpackten Verzeichnis suchen
         qcow2_path=$(find_qcow2_in_dir "$extract_dir" | head -1)
         if [[ -z "$qcow2_path" ]]; then
-            msg_warn "Keine QCOW2-Datei gefunden. Suche nach VMDK/ anderen Formaten ..."
+            msg_warn "Keine QCOW2-Datei gefunden. Suche nach VMDK/anderen Formaten ..."
             qcow2_path=$(find "$extract_dir" -maxdepth 1 -type f \( -name "*.vmdk" -o -name "*.vdi" -o -name "*.vhd" \) 2>/dev/null | head -1 || true)
         fi
 
@@ -554,7 +689,6 @@ Soll die VM mit diesen Werten erstellt werden?\
         fi
         msg_info "Gefundenes Image: ${qcow2_path}"
     else
-        # Direkt eine QCOW2/IMG-Datei
         qcow2_path="$source_path"
         if [[ ! -f "$qcow2_path" ]]; then
             msg_error "Datei nicht gefunden: ${qcow2_path}"
@@ -598,7 +732,7 @@ Soll die VM mit diesen Werten erstellt werden?\
         echo "  ${df_info:-}"
         echo ""
         msg_error "Mögliche Ursachen:"
-        msg_error "  1. Storage '${storage}' unterstützt keine VM-Images (pvesh get /storage/${storage})"
+        msg_error "  1. Storage '${storage}' unterstützt keine VM-Images"
         msg_error "  2. Speicherplatz voll (df -h)"
         msg_error "  3. QCOW2-Datei defekt (qemu-img check ${qcow2_path})"
         exit $EXIT_ERROR
@@ -620,7 +754,6 @@ Soll die VM mit diesen Werten erstellt werden?\
     fi
 
     msg_info "Importierte Disk: ${unused_disk}"
-
     msg_info "Binde Disk als scsi0 ein (cache=directsync) ..."
     qm set "${vmid}" \
         --scsi0 "${unused_disk},cache=directsync" \
@@ -664,7 +797,7 @@ Soll die VM mit diesen Werten erstellt werden?\
         qm start "${vmid}" && msg_ok "VM ${vmid} gestartet." || msg_warn "VM ${vmid} konnte nicht gestartet werden."
     fi
 
-    # ----- Fertig -------------------------------------------------------------
+    # ----- Fertig ------------------------------------------------------------
     echo ""
     echo -e "${BOLD}============================================${NC}"
     echo -e "${BOLD}  ACM Import abgeschlossen!${NC}"
