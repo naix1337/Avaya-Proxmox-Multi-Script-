@@ -21,6 +21,12 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # --- Status-Konstanten -------------------------------------------------------
+#  0  OK  — Erfolgreich ausgeführt
+#  1  ERROR  — Allgemeiner Fehler (qm, wget, tar, etc.)
+#  2  USER_ABORT  — Abbruch durch Benutzer (ESC/Cancel)
+# 127  — Befehl nicht gefunden (declare -A, fehlende Tools)
+# 255  — whiptail-Fehler (falsche Argumente)
+# -----------------------------------------------------------------------------
 EXIT_OK=0
 EXIT_ERROR=1
 EXIT_USER_ABORT=2
@@ -548,12 +554,21 @@ Es führt folgende Schritte aus:
     local import_exit=$?
 
     if [[ $import_exit -ne 0 ]]; then
-        msg_error "Fehler beim Import der Disk."
-        msg_error "qm importdisk Ausgabe:"
-        echo "${import_output}"
+        local df_info
+        df_info=$(df -h "$(dirname "${qcow2_path}")" 2>/dev/null | awk 'NR==2{print "Frei: " $4 " von " $2}')
+        msg_error "Fehler beim Import der Disk nach '${storage}'."
+        echo ""
+        echo "  Befehl:  qm importdisk ${vmid} ${qcow2_path} ${storage}"
+        echo "  Fehler:  ${import_output}"
+        echo "  ${df_info:-}"
+        echo ""
+        msg_error "Mögliche Ursachen:"
+        msg_error "  1. Storage '${storage}' unterstützt keine VM-Images (pvesh get /storage/${storage})"
+        msg_error "  2. Speicherplatz voll (df -h)"
+        msg_error "  3. QCOW2-Datei defekt (qemu-img check ${qcow2_path})"
         exit $EXIT_ERROR
     fi
-    msg_ok "Disk erfolgreich importiert."
+    msg_ok "Disk erfolgreich importiert nach '${storage}'."
 
     # 4. Importierte "unused disk" aus der Config holen und als scsi0 einbinden
     msg_info "Ermittle importierte Disk aus VM-Config ..."

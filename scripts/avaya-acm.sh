@@ -20,6 +20,13 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# --- Exit-Code-Tabelle -------------------------------------------------------
+#  0  OK  — Erfolgreich ausgeführt
+#  1  ERROR  — Allgemeiner Fehler (qm, wget, tar, etc.)
+#  2  USER_ABORT  — Abbruch durch Benutzer (ESC/Cancel)
+# 127  — Befehl nicht gefunden (declare -A, fehlende Tools)
+# 255  — whiptail-Fehler (falsche Argumente)
+# -----------------------------------------------------------------------------
 EXIT_OK=0
 EXIT_ERROR=1
 EXIT_USER_ABORT=2
@@ -80,8 +87,24 @@ validate_storage() {
     if ! pvesh get /storage/"${storage}" --noborder --noheader &>/dev/null; then
         msg_error "Storage '${storage}' existiert nicht in Proxmox."
         msg_info "Verfügbare Storages:"
-        pvesh get /storage --noborder --noheader 2>/dev/null | awk '{print "  - " $0}' || true
+        pvesh get /storage --noborder --noheader -output-format json 2>/dev/null \
+            | python3 -c "import sys,json; [print(f'  - {s[\"storage\"]}') for s in json.load(sys.stdin)]" 2>/dev/null \
+            || pvesh get /storage --noborder --noheader 2>/dev/null | awk '{print "  - " $0}'
         return 1
+    fi
+
+    # Prüfen, ob der Storage VM-Images unterstützt
+    local content
+    content=$(pvesh get /storage/"${storage}" --noborder --noheader -output-format json 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('content',''))" 2>/dev/null)
+    if [[ -n "$content" ]] && [[ "$content" != *"images"* ]] && [[ "$content" != *"rootdir"* ]]; then
+        msg_warn "Storage '${storage}' unterstützt keine VM-Images (content: ${content})."
+        msg_warn "Bitte einen Storage mit 'images'-Content-Type wählen (z. B. local-lvm)."
+        if ! whiptail --title "Storage-Warnung" \
+            --yesno "Storage '${storage}' unterstützt keine VM-Images.\n\nTrotzdem fortfahren (wird wahrscheinlich fehlschlagen)?" \
+            10 65; then
+            return 1
+        fi
     fi
     return 0
 }
@@ -552,12 +575,21 @@ Soll die VM mit diesen Werten erstellt werden?\
     local import_exit=$?
 
     if [[ $import_exit -ne 0 ]]; then
-        msg_error "Fehler beim Import der Disk."
-        msg_error "qm importdisk Ausgabe:"
-        echo "${import_output}"
+        local df_info
+        df_info=$(df -h "$qcow2_path" 2>/dev/null | awk 'NR==2{print "Frei: " $4 " von " $2}')
+        msg_error "Fehler beim Import der Disk nach '${storage}'."
+        echo ""
+        echo "  Befehl:  qm importdisk ${vmid} ${qcow2_path} ${storage}"
+        echo "  Fehler:  ${import_output}"
+        echo "  ${df_info:-}"
+        echo ""
+        msg_error "Mögliche Ursachen:"
+        msg_error "  1. Storage '${storage}' unterstützt keine VM-Images (pvesh get /storage/${storage})"
+        msg_error "  2. Speicherplatz voll (df -h)"
+        msg_error "  3. QCOW2-Datei defekt (qemu-img check ${qcow2_path})"
         exit $EXIT_ERROR
     fi
-    msg_ok "Disk erfolgreich importiert."
+    msg_ok "Disk erfolgreich importiert nach '${storage}'."
 
     # 4. Unused Disk als scsi0 einbinden
     msg_info "Ermittle importierte Disk aus VM-Config ..."

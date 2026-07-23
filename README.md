@@ -107,6 +107,27 @@ bash scripts/avaya-acm.sh           # ACM
 - Für SBCE: der Downloadlink wird im **Avaya PLDS** generiert
 - Dieses Skript automatisiert nur den Import — die Lizenzbedingungen von Avaya bleiben hiervon unberührt
 
+## Exit-Code-Tabelle
+
+| Code | Name | Bedeutung |
+|------|------|----------|
+| **0** | `OK` | Erfolgreich ausgeführt |
+| **1** | `ERROR` | Allgemeiner Fehler — `qm`, `wget`, `tar`, `curl` etc. sind fehlgeschlagen |
+| **2** | `USER_ABORT` | Abbruch durch Benutzer (ESC / Cancel in whiptail) |
+| **127** | — | Befehl nicht gefunden — z. B. `declare -A` (bash <4), fehlende Tools |
+| **255** | — | whiptail-Fehler — falsche Argumente oder abgeschnittenes Script |
+
+### Fehlerursachen (Exit-Code 1)
+
+| Symptom | Häufige Ursache | Fix |
+|---------|----------------|-----|
+| `qm importdisk` schlägt fehl | Storage unterstützt keine VM-Images (z.B. "Backup") | `pvesh get /storage/NAME` → Content-Type muss `images` enthalten |
+| `qm importdisk` schlägt fehl (2) | Speicherplatz voll | `df -h` prüfen, Speicher freigeben |
+| `qm importdisk` schlägt fehl (3) | QCOW2-Datei defekt | `qemu-img check DATEI` |
+| `tar`-Fehler beim OVA-Entpacken | Platte voll | OVA in `/var/lib/vz/template/iso/` verschieben |
+| `net0.model: value 'none'` | `--net0 none` (alte Syntax) nicht mehr gültig | Seit Commit b27f857 gefixt |
+| `unused disk not found` | Import fehlgeschlagen, keine Disk in Config | `qm config VMID` prüfen |
+
 ## Entwicklung
 
 ### Neues Modul hinzufügen
