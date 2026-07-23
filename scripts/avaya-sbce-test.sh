@@ -252,7 +252,7 @@ Es führt folgende Schritte aus:
     IFS='|' read -r profile_label profile_cores profile_ram profile_disk profile_nics <<< "$profile_data"
 
     msg_info "Gewählte Variante: ${profile_label}"
-    msg_info "  CPU: ${profile_cores} Cores  |  RAM: ${profile_ram} MB  |  Disk: ${profile_disk} GB  |  NICs: ${profile_nics}"
+    msg_info "  vCPUs: ${profile_cores} (1 Socket)  |  RAM: ${profile_ram} MB  |  Disk: ${profile_disk} GB  |  NICs: ${profile_nics}"
 
     # ----- Schritt 2: VM-ID ---------------------------------------------------
     local vmid=""
@@ -478,7 +478,7 @@ Es führt folgende Schritte aus:
     summary_text+="Variante:        ${profile_label}\n"
     summary_text+="VM-ID:           ${vmid}\n"
     summary_text+="VM-Name:         ${vm_name}\n"
-    summary_text+="CPU Cores:       ${profile_cores}\n"
+    summary_text+="vCPUs:           ${profile_cores} (1 Socket)\n"
     summary_text+="RAM:             ${profile_ram} MB\n"
     summary_text+="Disk (root):     ${profile_disk} GB\n"
     summary_text+="NICs (Anzahl):   ${profile_nics}\n"
@@ -533,6 +533,7 @@ Es führt folgende Schritte aus:
     msg_info "Erstelle VM ${vmid} (${vm_name}) ..."
     qm create "${vmid}" \
         --name "${vm_name}" \
+        --sockets 1 \
         --cores "${profile_cores}" \
         --memory "${profile_ram}" \
         --cpu host \
@@ -646,7 +647,7 @@ Es führt folgende Schritte aus:
 VM-ID:           ${vmid}
 Name:            ${vm_name}
 Variante:        ${profile_label}
-CPU:             ${profile_cores} Cores
+vCPUs:           ${profile_cores} (1 Socket)
 RAM:             ${profile_ram} MB
 NICs:            ${profile_nics} (${nic_model} @ ${bridge})
 Storage:         ${storage}

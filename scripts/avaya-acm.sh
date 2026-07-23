@@ -212,12 +212,25 @@ check_disk_space() {
     return 0
 }
 
-# --- Profile ----------------------------------------------------------------
+# --- Profile (offizielle Avaya-Werte) ---------------------------------------
 # NAME|CORES|RAM_MB|DISK_GB|NICS
+#
+# Quelle: Avaya Communication Manager OVA Footprint Tabelle (ASP R6.0.x KVM)
+# https://documentation.avaya.com/en-us/home/bundle/communication-manager/
+#   deployingcommunicationmanagerver102x/planning-and-preconfigurationfordeploying
+#   communicationmanager/Supported_footprints_for_Communication_Manager_OVA_on_ASP_
+#   R6_0_x__KVM_on_RHEL_8_10_.html
+#
+# Profil         | vCPUs | RAM    | Disk | NICs | Max Users
+# ----------------+-------+--------+------+------+----------
+# CM Simplex2     | 2     | 4608 MB| 64 GB|  2   | 41.000
+# CM Duplex       | 3     | 5120 MB| 64 GB|  3   | 30.000
+# CM High Duplex  | 3     | 5120 MB| 64 GB|  3   | 41.000
+# -----------------------------------------------------------------------------
 declare -A PROFILES
-PROFILES["small"]="Small ACM|4|8192|100|2"
-PROFILES["medium"]="Medium ACM|6|16384|200|3"
-PROFILES["large"]="Large ACM|8|32768|300|4"
+PROFILES["simplex"]="CM Simplex2|2|4608|64|2"
+PROFILES["duplex"]="CM Duplex|3|5120|64|3"
+PROFILES["highduplex"]="CM High Duplex|3|5120|64|3"
 
 # --- Hauptfunktion -----------------------------------------------------------
 
@@ -249,12 +262,12 @@ verwendet: OVMF, VirtIO SCSI, CPU Host, E1000-NICs.\
     local variant_choice
     variant_choice=$(whiptail --title "ACM-Profil" \
         --radiolist "\
-Wähle ein ACM-Profil:\n\
+Wähle ein ACM-Profil (offizielle Avaya-Werte):\n\
 " \
-        16 60 5 \
-        "small"   "Small ACM    — 4 Cores, 8 GB RAM, 100 GB, 2 NICs"  ON \
-        "medium"  "Medium ACM   — 6 Cores, 16 GB RAM, 200 GB, 3 NICs" OFF \
-        "large"   "Large ACM    — 8 Cores, 32 GB RAM, 300 GB, 4 NICs" OFF \
+        16 65 5 \
+        "simplex"     "CM Simplex2    — 2 vCPUs, 4.5 GB RAM, 64 GB, 2 NICs"   ON \
+        "duplex"      "CM Duplex      — 3 vCPUs, 5 GB RAM, 64 GB, 3 NICs"      OFF \
+        "highduplex"  "CM High Duplex — 3 vCPUs, 5 GB RAM, 64 GB, 3 NICs"      OFF \
         3>&1 1>&2 2>&3)
 
     if [[ $? -ne 0 ]] || [[ -z "$variant_choice" ]]; then
@@ -477,7 +490,7 @@ Wähle ein ACM-Profil:\n\
 Profil:          ${profile_label}
 VM-ID:           ${vmid}
 VM-Name:         ${vm_name}
-CPU Cores:       ${profile_cores}
+vCPUs:          ${profile_cores} (1 Socket)
 RAM:             ${profile_ram} MB
 Disk (root):     ${profile_disk} GB
 NICs (Anzahl):   ${profile_nics}
@@ -554,6 +567,7 @@ Soll die VM mit diesen Werten erstellt werden?\
     msg_info "Erstelle VM ${vmid} (${vm_name}) ..."
     qm create "${vmid}" \
         --name "${vm_name}" \
+        --sockets 1 \
         --cores "${profile_cores}" \
         --memory "${profile_ram}" \
         --cpu host \
@@ -665,7 +679,7 @@ Soll die VM mit diesen Werten erstellt werden?\
 VM-ID:           ${vmid}
 Name:            ${vm_name}
 Profil:          ${profile_label}
-CPU:             ${profile_cores} Cores
+vCPUs:           ${profile_cores} (1 Socket)
 RAM:             ${profile_ram} MB
 NICs:            ${profile_nics} (${nic_model} @ ${bridge})
 Storage:         ${storage}

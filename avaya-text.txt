@@ -1,0 +1,509 @@
+  ACM mit KVM Image
+
+    Dienstag, 30. Juni 2026 08:12
+1. Downloadlink für das aktuelle Image in PLDS erzeugen
+1. Beispiel:
+1. https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24
+2. Download der Software direkt per wget direkt vom link:
+1. Beispiel:
+    wget https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24 CM-
+    Duplex-010.2.0.0.229-KVM-1.ova
+
+2. Die Datei sollte mit dem wget direkt umbenannt werden --> offener Task
+3. Exportieren des OVA
+1. tar xvf <datei.ova>
+
+4. Erstellen der Virtuellen Maschine:
+1. qm create 1011  die 1131 in unserm Bespiel ist die VM ID und muss folgende Parameter haben:
+
+    mind. Dreistellig (keine 0 voran), und muss eindeutig sein
+    Wir legen die ID 4stellig an. 1 als führende Ziffer und dann die IP Adresse. Bei 2stelliger IP, dann z.B:
+    1011
+2. Wir haben die ID so gewählt das z.B. anhand der IP Adresse diese nachvollziehbar ist
+5. Einbinden und kopieren der Virtuellen Platten:
+1. qm importdisk 1013 system.qcow2 AVAYA
+     AVAYA
+
+6. Konfigurieren und anpassen der virtuellen Maschine
+1. Login auf Proxmox Web UI
+2. Auswahl der angelegten Virtuellen Maschine
+
+3. Anpassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte System (Duplex, Dimplex
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 1
+3. Anpassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte System (Duplex, Dimplex
+    etc.)
+
+1. Wichtig ist das die genauen Werte von Avaya genutzt werden, z.B. 5GB bei Duplex
+4. Konfiguration des Prozessors nach Vorgabe von Avaya laut Matrix
+1. Folgende Hinweise: Bitte Advanced auswählen und darauf achten wie viele VCPUS genutzt werden
+2. Beim Typ möglichst Host wählen (keine Emulation sondern durchreichen der CPU an den Gast)
+
+5. BIOS muss auf UEFI bzw. OVMF gestellt werden!!
+
+6. SCSI Controller auf VirtIO SCSI stellen:
+7. Festplatten einhängen mit dem Typ SCSI und Cache Typ direct sync
+
+8. 2x Netzwerkkarten hinzufügen:
+1. Add --> Network Device
+
+2. Das richtige Netz wählen und als Typ Intel E1000E wählen:
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 2
+9. Nach Options gehen und folgendes einstellen:
+1. Boot Order:
+1. Scsi0 wählen und an Position 1 bringen:
+2. Die Maschine sinnvoll unter dem Punkt Name umbenennen:
+7. Als nächstes das System mittels Console starten:
+
+8. Nach dem Booten mit craft und craft01 einloggen und wie gewohnt konfigurieren
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 3
+  SMGR mit KVM Image
+
+    Dienstag, 30. Juni 2026 08:13
+1. Downloadlink für das aktuelle Image in PLDS erzeugen (Hier ein Beispiel vom CM. Für den SMGR
+
+    aber analog dazu)
+1. Beispiel:
+
+2. https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24
+
+2. Download der Software direkt per wget direkt vom link:
+    (Hier ein Beispiel vom CM. Für den SMGR aber analog dazu)
+
+1. Beispiel:
+    wget https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24 CM-
+    Duplex-010.2.0.0.229-KVM-1.ova
+
+2. Die Datei sollte mit dem wget direkt umbenannt werden --> offener Task (die Optionen im wget
+    Befehl stimmen noch nicht)
+
+3. Exportieren des OVA
+1. tar xvf <datei.ova>
+
+    für copy&paste: tar xvf SMGR-10.2.0.0.439670-KVM-4E-1.ova
+
+4. Erstellen der Virtuellen Maschine:
+1. qm create 1132  die 1132 in unserm Bespiel ist die VM ID und muss folgende Parameter haben:
+
+    mind. Dreistellig, wir machen aber 4-stellig (keine 0 voran), und muss eindeutig sein.
+    Wir legen die ID 4-stelling an. Führende 1 und dann die IP 3stellig. Wenn die IP zweistellig ist, dann 0
+    voran. Sprich bei einer IP x.y.z.14 heißt die ID dann 1014. Bei einer IP x.y.z.114 dann die ID 1114
+    Nach dem Ausführen des Befehls sollte in der Proxmox Oberfläche die virtuelle Maschine
+    erscheinen.
+
+2. Wir haben die ID so gewählt das z.B. anhand der IP Adresse diese nachvollziehbar ist
+5. Einbinden und kopieren der Virtuellen Platten:
+1. qm importdisk 1132 SMGR-10.2.0.0.439670-KVM-4E-disk.qcow2 Avaya (mit der Option "Avaya" wird
+
+    der im Proxmox angelegte Storage mit Namen "Avaya" verwendet
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 4
+2. Nach dem Einbinden der Platte erscheint diese auch in der Hardwareübersicht am Proxmox:
+
+5.
+6. Konfigurieren und anpassen der virtuellen Maschine nach Vorgabe Avaya System-Doku:
+
+1. Login auf Proxmox Web UI
+2. Auswahl der angelegten Virtuellen Maschine
+
+3. Anpassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte Profil
+1. Wichtig ist das die genauen Werte von Avaya genutzt werden, z.B. 5GB bei Duplex
+4. Konfiguration des Prozessors nach Vorgabe von Avaya laut Matrix
+1. Folgende Hinweise: Bitte Advanced auswählen und darauf achten wie viele VCPUS genutzt werden
+2. Beim Typ möglichst Host wählen (keine Emulation sondern durchreichen der CPU an den Gast)
+
+5. BIOS muss auf UEFI bzw. OVMF gestellt werden!!
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 5
+5. BIOS muss auf UEFI bzw. OVMF gestellt werden!!
+6. SCSI Controller auf VirtIO SCSI stellen:
+7. Festplatten einhängen mit dem Typ SCSI und Cache Typ direct sync
+
+8. 1x Netzwerkkarten hinzufügen:
+1. Add --> Network Device
+
+2. Das richtige Netz wählen und als Typ Intel E1000E wählen:
+
+9. Nach Options gehen und folgendes einstellen:
+
+1. Boot Order:
+1. Scsi0 wählen und an Position 1 bringen und enablen:
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 6
+2. Die Maschine sinnvoll unter dem Punkt Name umbenennen:
+7. Als nächstes das System mittels Console starten:
+8. Nach dem Booten mit craft und craft01 einloggen und wie gewohnt konfigurieren :-)
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 7
+11. Passwort: Ptc997997 -> geändert auf: P!c997997
+                                            Avaya-Treiber-Allgemeine-infos Promxox Seite 8
+  ASM mit KVM Image - noch in Bearbeitung!
+
+    Dienstag, 30. Juni 2026 08:13
+1. Downloadlink für das aktuelle Image in PLDS erzeugen
+1. Beispiel:
+
+2. https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24
+
+2. Download der Software direkt per wget direkt vom link:
+1. Beispiel:
+
+    wget https://downloads.dlavaya.com/CommunicationManager/CommunicationManager102/CM-
+    Duplex-010.2.0.0.229-KVM-1.ova?__token__=st=1738324202~exp=1738335002
+    ~acl=*~hmac=c33589d523c882729ceaf5b61137b789f9c978ab8467841d50e5a74c1b12ed24 CM-
+    Duplex-010.2.0.0.229-KVM-1.ova
+
+2. +49 89 54615 314
+3. Die Datei sollte mit dem wget direkt umbenannt werden --> offener Task
+3. Exportieren des OVA
+1. tar xvf <datei.ova>
+
+4. Erstellen der Virtuellen Maschine:
+1. qm create 1014  die 1131 in unserm Bespiel ist die VM ID und muss folgende Parameter haben:
+
+    mind. Dreistellig (keine 0 voran), und muss eindeutig sein
+    Wir legen die ID 4stellig an. 1 als führende Ziffer und dann die IP Adresse. Bei 2stelliger IP, dann z.B:
+    1011
+2. Wir haben die ID so gewählt das z.B. anhand der IP Adresse diese nachvollziehbar ist
+5. Einbinden und kopieren der Virtuellen Platten:
+1. qm importdisk 1014 SM.qcow2 AVAYA
+
+6. Konfigurieren und anpassen der virtuellen Maschine
+1. Login auf Proxmox Web UI
+2. Auswahl der angelegten Virtuellen Maschine
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 9
+4. A1npassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte System (Duplex,
+    Dimplex etc.)
+
+1. Wichtig ist das die genauen Werte von Avaya genutzt werden, z.B. 5GB bei Duplex
+5. Konfiguration des Prozessors nach Vorgabe von Avaya laut Matrix
+1. Folgende Hinweise: Bitte Advanced auswählen und darauf achten wie viele VCPUS genutzt werden
+2. Beim Typ möglichst Host wählen (keine Emulation sondern durchreichen der CPU an den Gast)
+
+6. BIOS muss auf UEFI bzw. OVMF gestellt werden!!
+
+7. SCSI Controller auf VirtIO SCSI stellen:
+8. Festplatten einhängen mit dem Typ SCSI und Cache Typ direct sync
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 10
+ 9. 2x Netzwerkkarten hinzufügen:
+ 1. Add --> Network Device
+
+ 2. Das richtige Netz wählen und als Typ Intel E1000 wählen !!!!!!!!!!!!!!!!!!!! KEIN
+     E1000E !!!!!!!!!!!!!!!!!!!!!!!
+
+ 1.
+10. Nach Options gehen und folgendes einstellen:
+ 1. Boot Order:
+ 1. Scsi0 wählen und an Position 1 bringen:
+
+ 2. Die Maschine sinnvoll unter dem Punkt Name umbenennen:
+
+ 7. Als nächstes das System mittels Console starten:
+
+                                           Avaya-Treiber-Allgemeine-infos Promxox Seite 11
+8. Nach dem Booten mit craft und craft01 einloggen und wie gewohnt konfigurieren :-)
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 12
+  SBCE mit KVM Image
+
+    Dienstag, 30. Juni 2026 08:13
+1. Download des Qcows Image direkt von Avaya
+2. Upload des Qcows auf den den Server per WinSCP in /var/lib/vz/templates
+3. Erstellen der Virtuellen Maschine:
+1. qm create 1019, 1019 in unserm Bespiel ist die VM ID
+
+    Wir legen die ID 4stellig an. 1 als führende Ziffer und dann die IP Adresse. Bei 2stelliger IP, dann z.B:
+    1019
+2. Wir haben die ID so gewählt das z.B. anhand der IP Adresse diese nachvollziehbar ist
+4. Einbinden und kopieren der Virtuellen Platten:
+1. qm importdisk 140 sbce-10.2.1.0-101-24795.qcow2 local-zfs
+5. Konfigurieren und anpassen der virtuellen Maschine
+1. Login auf Proxmox Web UI
+2. Auswahl der angelegten Virtuellen Maschine
+
+4. Anpassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte System (Duplex, Dimplex
+    etc.)
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 13
+    etc.)
+1. Wichtig ist das die genauen Werte von Avaya genutzt werden, z.B. 5GB bei Duplex
+5. Konfiguration des Prozessors nach Vorgabe von Avaya laut Matrix
+1. Folgende Hinweise: Bitte Advanced auswählen und darauf achten wie viele VCPUS genutzt werden
+2. Beim Typ möglichst Host wählen (keine Emulation sondern durchreichen der CPU an den Gast)
+
+6. BIOS muss auf UEFI bzw. OVMF gestellt werden!!
+7. SCSI Controller auf VirtIO SCSI stellen:
+8. Festplatten einhängen mit dem Typ SCSI und Cache Typ direct sync
+
+9. Netzwerkkarten hinzufügen (2x für EMS, 6x für SBC):
+1. Add --> Network Device
+
+2. Das richtige Netz wählen und als Typ Intel E1000E wählen:
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 14
+ 2. Das richtige Netz wählen und als Typ Intel E1000E wählen:
+10. Nach Options gehen und folgendes einstellen:
+
+ 1. Boot Order:
+ 1. Scsi0 wählen und an Position 1 bringen:
+ 2. Die Maschine sinnvoll unter dem Punkt Name umbenennen:
+ 6. Als nächstes das System mittels Console starten:
+
+ 7. Nach dem Booten mit craft und craft01 einloggen und wie gewohnt konfigurieren
+
+                                           Avaya-Treiber-Allgemeine-infos Promxox Seite 15
+Breeze mit KVM Image
+
+Dienstag, 30. Juni 2026 08:14
+
+      Voraussetzungen
+
+         Vor Beginn sollten folgende Punkte erfüllt sein:
+             · Zugriff auf den Proxmox-Host per Shell oder Weboberfläche.
+             · Die OVA-Datei liegt bereits auf dem Node vor.
+             · Ein Ziel-Storage für den Festplattenimport ist vorhanden, im Beispiel Avaya.
+             · Eine freie VM-ID ist verfügbar, im Beispiel 1000.
+
+      Ziel der Anleitung
+
+         Ziel ist es, eine vorhandene VM aus einer OVA-Datei in Proxmox zu übernehmen und sie so zu konfigurieren, dass sie sauber über die importierte Disk
+         bootet. In der gezeigten Konfiguration wird dafür UEFI verwendet, die Festplatte über VirtIO SCSI angebunden und die Netzwerkkarte an vmbr0
+         angeschlossen.
+
+      1. VM anlegen
+
+         Erstelle zuerst eine neue VM mit einer passenden ID. Im gezeigten Beispiel wird dafür die VM-ID 1000 verwendet.
+
+         qm create 1000
+
+      2. In das Image-Verzeichnis wechseln
+
+         Wechsle auf dem Proxmox-Host in das Verzeichnis, in dem sich die OVA-Datei befindet. Im Screenshot wird dafür /var/lib/vz/template/iso verwendet.
+
+         cd /var/lib/vz/template/iso
+         ls
+         Dort ist die Appliance-Datei sichtbar, hier zum Beispiel Breeze-3.9.0.3.390307-kvm-0003.ova.
+
+      3. OVA entpacken
+
+         Entpacke anschließend die OVA-Datei mit tar.
+
+         tar xvf Breeze-3.9.0.3.390307-kvm-0003.ova
+         Nach dem Entpacken liegen unter anderem eine .qcow2-Datei, eine .ovf-Datei sowie weitere Begleitdateien im Verzeichnis. Für den späteren Import ist
+         vor allem die Datei Breeze.qcow2 relevant.
+
+      4. Disk in den Storage importieren
+
+         Importiere jetzt die extrahierte QCOW2-Datei in den gewünschten Proxmox-Storage. Im gezeigten Beispiel wird die Disk in den Storage Avaya
+         importiert und der VM 1000 zugeordnet.
+
+         qm importdisk 1000 Breeze.qcow2 Avaya
+         Nach erfolgreichem Import bestätigt die Shell den Vorgang mit einer Meldung wie successfully imported disk 'Avaya:vm-1000-disk-0'. In der Proxmox-
+         Hardwareansicht taucht die Platte danach als Unused Disk 0 auf.
+
+                                     Avaya-Treiber-Allgemeine-infos Promxox Seite 16
+5. Importierte Disk der VM zuweisen
+
+Öffne die VM in Proxmox, gehe auf Hardware und wähle die importierte ungenutzte Festplatte aus. Anschließend wird sie der VM aktiv zugeordnet.
+Im gezeigten Beispiel wird die Festplatte mit folgenden Werten eingebunden:
+
+   · Bus/Device: SCSI
+   · Slot: 0
+   · Cache: Direct sync
+Nach dem Hinzufügen erscheint die Disk nicht mehr als ,,Unused Disk", sondern als reguläre Hard Disk (scsi0) in der Hardwareliste.
+
+6. CPU-Konfiguration anpassen
+
+Passe danach die Prozessor-Einstellungen an die Zielumgebung an. In den Screenshots wird die VM mit 1 Socket, 8 Kernen, 8 VCPUs und CPU-Typ host
+konfiguriert.
+Diese Einstellung sorgt dafür, dass die VM die CPU-Eigenschaften des Hosts möglichst direkt nutzt. Das ist bei importierten Appliances oft sinnvoll,
+wenn maximale Kompatibilität oder Leistung benötigt wird.
+
+7. BIOS und SCSI-Controller umstellen
+
+In der Hardwareansicht wird danach das BIOS auf OVMF (UEFI) umgestellt. Zusätzlich wird der SCSI-Controller auf VirtIO SCSI gesetzt.
+Diese beiden Einstellungen sind wichtig, damit die importierte VM mit modernerem Bootmodus und passendem Storage-Controller betrieben wird.
+Nach der Umstellung sollte die Hardwareliste unter anderem BIOS: OVMF (UEFI) und SCSI Controller: VirtIO SCSI anzeigen.
+
+                          Avaya-Treiber-Allgemeine-infos Promxox Seite 17
+8. Netzwerkkarte hinzufügen
+
+Falls noch keine passende Netzwerkkarte vorhanden ist, füge über Add  Network Device eine neue Schnittstelle hinzu. Im gezeigten Beispiel wird die
+Bridge vmbr0 genutzt, das Modell ist Intel E1000, und die Firewall-Option ist aktiviert.
+Nach dem Hinzufügen erscheint in der Hardwareliste ein Eintrag wie Network Device (net0) ... bridge=vmbr0,firewall=1.
+
+9. Boot-Reihenfolge prüfen
+
+Öffne unter Options den Punkt Boot Order und kontrolliere, dass die importierte Festplatte als erstes Boot-Gerät gesetzt ist. Im Screenshot steht scsi0
+an Position 1 und net0 dahinter.
+Diese Reihenfolge ist entscheidend, damit die VM direkt von der importierten Systemdisk startet und nicht versehentlich einen Netzwerkboot versucht.
+
+                          Avaya-Treiber-Allgemeine-infos Promxox Seite 18
+10. Ergebnis prüfen und VM starten
+
+Nach Abschluss der Konfiguration sollte die Hardwareansicht mindestens folgende Punkte zeigen:
+   · Arbeitsspeicher gesetzt.
+   · Prozessoren korrekt konfiguriert.
+   · BIOS auf OVMF (UEFI).
+   · SCSI-Controller auf VirtIO SCSI.
+   · Importierte Festplatte als Hard Disk (scsi0).
+   · Netzwerkkarte als net0.
+
+Wenn diese Einträge vorhanden sind, kann die VM gestartet und der Bootvorgang getestet werden. Die gezeigten Screenshots dokumentieren einen
+erfolgreichen Import und eine vollständige Grundkonfiguration auf einem einzelnen Proxmox-Node.
+
+                          Avaya-Treiber-Allgemeine-infos Promxox Seite 19
+AADS                     08:27
+
+Dienstag, 30. Juni 2026
+
+1. Wie Session Manager nur:
+
+· Disk1-4 in Reihenfolge der Disk Namen einbinden
+· Benötigt 1 Network devices
+· Boot von Disk0 (war disk 1 beim Einbinden)
+· Resourcen nach Screenshot unten (in der Regel Profil 1)
+
+                         Avaya-Treiber-Allgemeine-infos Promxox Seite 20
+Avaya-Treiber-Allgemeine-infos Promxox Seite 21
+Windows unter Proxmox allgemein
+
+Dienstag, 30. Juni 2026 08:28
+  1. Bereitstellung folgender ISO´s:
+  1. VirtIO Treiber von https://pve.proxmox.com/wiki/Windows_VirtIO_Drivers
+  2. Windows ISO (unter anderem zu finden unter (\\xfile2.ptc.local\All-Technik\Microsoft)
+  3. Bereitstellung in Proxmox:
+  1. Logon in Web UI Proxmox
+  2. Die ISO´s werden unter den Storage z.B. in das local storage geladen:
+
+  2. Mit Create VM eine Virtuelle Maschine erstellen:
+  1. Konten wählen und VM ID wählen (Analog zu den Linux Maschinen 4stellig 1<letztes IP Oktet>,
+
+       z.B. 1024
+  2. Im Namen tragen wir den Hostname / FQDN ein:
+
+  3. Richtige Windows Version auswählen:
+
+                                     Avaya-Treiber-Allgemeine-infos Promxox Seite 22
+ 7. Das benötigte Image wählen:
+
+ 8. Zusätzlich den VirtIO Treiber mittels Add addtional drive for VirtIO drivers aktivieren und das
+     entsprechende Image laden:
+
+ 9. Mit Next weiter
+10. Unter System das richtige Storage wählen:
+
+                                   Avaya-Treiber-Allgemeine-infos Promxox Seite 23
+10. Unter System das richtige Storage wählen:
+
+11. Festplatten korrekt konfigurieren:
+ 1. Bus Type ist VirtIO
+ 2. Disk Größe nach Bedarf einstellen
+ 3. Cache einstellen
+
+12. CPU Kerne einstellen und den Type möglichst auf host stellen:
+
+13. Arbeitsspeicher wie benötigt einstellen:
+
+14. Netzwerkkarte wie benötigt einstellen:
+                                   Avaya-Treiber-Allgemeine-infos Promxox Seite 24
+14. Netzwerkkarte wie benötigt einstellen:
+
+15. Mit Finish fertigstellen
+ 3. Nun unter Options die Boot Order anpassen. Vorschlag RT: 1. CD Laufwerk mit Windows, dann
+
+     Festplatte, Netzwerkkarte deaktiveren:
+ 4. Unter Console kann die Maschine mit Start Now gestartet werden:
+
+ 5. Bei der Windows Installation muss der VirtIO Treiber mit dem Expertmodus eingebunden
+     werden:
+
+                                   Avaya-Treiber-Allgemeine-infos Promxox Seite 25
+1. Mit Load driver den VirtIO Treiber unter folgenden Verzeichnis einbinden:
+                                 Avaya-Treiber-Allgemeine-infos Promxox Seite 26
+6. Nun ist die Festplatte sichtbar und die Installation kann gestartet werden:
+                                 Avaya-Treiber-Allgemeine-infos Promxox Seite 27
+7. Nach der Installation von Windows müssen noch die entsprechenden KVM Treiber isntalliert
+    werden:
+
+                                 Avaya-Treiber-Allgemeine-infos Promxox Seite 28
+Avaya-Treiber-Allgemeine-infos Promxox Seite 29
+  Breeze mit KVM Image WOP ide needed
+
+    Dienstag, 30. Juni 2026 08:28
+1. Download des aktuellen KVM OVAS
+1. Beispiel:
+2. Upload auf den Server mit WINSCP, dabei am besten direkt umbenennen
+2. Exportieren des OVA
+1. tar xvf <datei.ova>
+
+3. Erstellen der Virtuellen Maschine:
+1. qm create 1011  die 1131 in unserm Bespiel ist die VM ID und muss folgende Parameter haben:
+
+    mind. Dreistellig (keine 0 voran), und muss eindeutig sein
+    Wir legen die ID 4stellig an. 1 als führende Ziffer und dann die IP Adresse. Bei 2stelliger IP, dann z.B:
+    1011
+2. Wir haben die ID so gewählt das z.B. anhand der IP Adresse diese nachvollziehbar ist
+4. Einbinden und kopieren der Virtuellen Platten:
+1. qm importdisk 1019 Breeze.qcow2 local-lvm
+5. Konfigurieren und anpassen der virtuellen Maschine
+1. Login auf Proxmox Web UI
+2. Auswahl der angelegten Virtuellen Maschine
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 30
+3. Anpassen des Arbeitsspeichers an des benötigt Footprint bzw. gewünschte System (Duplex, Dimplex
+    etc.)
+
+1. Wichtig ist das die genauen Werte von Avaya genutzt werden, z.B. 5GB bei Duplex
+4. Konfiguration des Prozessors nach Vorgabe von Avaya laut Matrix
+1. Folgende Hinweise: Bitte Advanced auswählen und darauf achten wie viele VCPUS genutzt werden
+2. Beim Typ möglichst Host wählen (keine Emulation sondern durchreichen der CPU an den Gast)
+
+5. BIOS muss auf SEA BIOS gestellt werden!
+1.
+6. SCSI Controller auf VirtIO SCSI stellen:
+1.
+7. Festplatten einhängen mit dem Typ SCSI und Cache Typ direct sync
+
+8. 2x Netzwerkkarten hinzufügen:
+1. Add --> Network Device
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 31
+1. Add --> Network Device
+
+2. Das richtige Netz wählen und als Typ Intel E1000E wählen:
+9. Nach Options gehen und folgendes einstellen:
+1. Boot Order:
+1. Scsi0 wählen und an Position 1 bringen:
+2. Die Maschine sinnvoll unter dem Punkt Name umbenennen:
+6. Als nächstes das System mittels Console starten:
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 32
+6. Als nächstes das System mittels Console starten:
+7. Nach dem Booten mit craft und craft01 einloggen und wie gewohnt konfigurieren :-)
+
+                                          Avaya-Treiber-Allgemeine-infos Promxox Seite 33
+  CMS mit KVM Image
+
+    Dienstag, 30. Juni 2026 08:29
+
+· Download des KVM Images von CMS
+· Upload via Winscp
+· OVA entpacken mit tar -xvf
+· Virtuelle Maschine mittels qm create xxxx anlegen
+· Disk import mittels qm importdisk xxxx cms-*.qcow2
+· Vergabe der Hardware siehe Screenshot unten (kein UEFI, sondern normales BIOS)
+· Boot Device anpassn
+
+                                         Avaya-Treiber-Allgemeine-infos Promxox Seite 34
+
