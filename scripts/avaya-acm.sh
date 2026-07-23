@@ -143,6 +143,52 @@ find_qcow2_in_dir() {
     find "$dir" -maxdepth 1 -type f \( -name "*.qcow2" -o -name "*.img" -o -name "*.raw" \) 2>/dev/null | head -5 || true
 }
 
+# Prüft, ob genug Speicherplatz für die OVA-Entpackung vorhanden ist
+check_disk_space() {
+    local ova_path="$1"
+    local target_dir="$2"
+
+    # OVA-Größe ermitteln
+    local ova_size_kb
+    ova_size_kb=$(du -k "$ova_path" 2>/dev/null | cut -f1)
+    if [[ -z "$ova_size_kb" ]] || [[ "$ova_size_kb" -eq 0 ]]; then
+        msg_warn "Konnte Größe der OVA-Datei nicht ermitteln. Überspringe Speicherprüfung."
+        return 0
+    fi
+
+    # Freier Speicher im Ziel-Verzeichnis
+    local free_kb
+    free_kb=$(df -k "$target_dir" 2>/dev/null | awk 'NR==2{print $4}')
+    if [[ -z "$free_kb" ]] || [[ "$free_kb" -eq 0 ]]; then
+        msg_warn "Konnte freien Speicher nicht ermitteln. Überspringe Speicherprüfung."
+        return 0
+    fi
+
+    # Großzügiger Faktor: entpackte OVA braucht meist das 2-3fache
+    # Wir prüfen auf min. 3x OVA-Größe oder 5 GB (je nachdem was größer ist)
+    local min_needed_kb=$(( ova_size_kb * 3 ))
+    local five_gb=$(( 5 * 1024 * 1024 ))
+    [[ $min_needed_kb -lt $five_gb ]] && min_needed_kb=$five_gb
+
+    local ova_size_mb=$(( ova_size_kb / 1024 ))
+    local free_mb=$(( free_kb / 1024 ))
+    local needed_mb=$(( min_needed_kb / 1024 ))
+
+    if [[ $free_kb -lt $min_needed_kb ]]; then
+        msg_warn "Wenig Speicherplatz in ${target_dir}: ${free_mb} MB frei"
+        msg_warn "OVA ist ${ova_size_mb} MB groß. Empfohlen: mind. ${needed_mb} MB frei."
+        if ! whiptail --title "Wenig Speicherplatz" \
+            --yesno "Wenig Speicher in ${target_dir} (${free_mb} MB frei).\n\nDie OVA (${ova_size_mb} MB) benötigt ca. ${needed_mb} MB für die Entpackung.\n\nTrotzdem fortfahren?" \
+            12 65; then
+            msg_info "Abbruch wegen zu wenig Speicherplatz."
+            exit $EXIT_USER_ABORT
+        fi
+    else
+        msg_ok "Speicherplatz ausreichend: ${free_mb} MB frei (OVA: ${ova_size_mb} MB)"
+    fi
+    return 0
+}
+
 # --- Profile ----------------------------------------------------------------
 # NAME|CORES|RAM_MB|DISK_GB|NICS
 declare -A PROFILES
@@ -441,6 +487,10 @@ Soll die VM mit diesen Werten erstellt werden?\
         local extract_dir
         extract_dir="$(dirname "$source_path")/acm-extract-${vmid}"
         mkdir -p "$extract_dir"
+
+        # Checks vor der Entpackung
+        check_disk_space "$source_path" "$extract_dir"
+
         msg_info "OVA/OVF-Datei erkannt. Entpacke nach ${extract_dir} ..."
 
         if ! tar -xvf "$source_path" -C "$extract_dir"; then
