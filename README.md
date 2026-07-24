@@ -1,8 +1,7 @@
 # Avaya-Proxmox-Multi-Script
 
 Modulares Bash-Projekt für den Import von Avaya KVM-Images auf **Proxmox VE**.
-Das Hauptscript bietet ein **whiptail**-basiertes Menü im Stil der [Proxmox Helper Scripts](https://github.com/tteck/Proxmox).
-
+Das Hauptscript bietet ein **whiptail**-basiertes Menü 
 ## Repository-Struktur
 
 ```
